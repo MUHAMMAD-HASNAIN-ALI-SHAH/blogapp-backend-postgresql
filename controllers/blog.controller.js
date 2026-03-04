@@ -11,7 +11,6 @@ const allBlogs = async (req, res) => {
         .json({ blogs: JSON.parse(cachedBlogs), source: "cache" });
     }
 
-    console.log("Fetching all blogs from database...");
     const result = await pool.query(
       "SELECT * FROM blogs ORDER BY created_at DESC"
     );
@@ -35,7 +34,6 @@ const getBlogById = async (req, res) => {
       return res.status(200).json({ blog: JSON.parse(cachedBlog), source: "cache" });
     }
 
-    console.log(`Fetching blog with ID ${id} from database...`);
     const result = await pool.query(
       "SELECT * FROM blogs WHERE id = $1",
       [id]
@@ -66,7 +64,6 @@ const addView = async (req, res) => {
       const blogs = JSON.parse(cashedBlogs);
       checkBlog = blogs.find((blog) => blog.id === parseInt(id)).id;
     } else {
-      console.log("Checking blog in database...");
       checkBlog = await pool.query(
         "SELECT id FROM blogs WHERE id = $1",
         [id]

@@ -64,10 +64,11 @@ const addView = async (req, res) => {
       const blogs = JSON.parse(cashedBlogs);
       checkBlog = blogs.find((blog) => blog.id === parseInt(id)).id;
     } else {
-      checkBlog = await pool.query(
+      const result = await pool.query(
         "SELECT id FROM blogs WHERE id = $1",
         [id]
-      ).rows[0].id;
+      );
+      checkBlog = result.rows[0].id;
     }
 
     if (checkBlog.id) {

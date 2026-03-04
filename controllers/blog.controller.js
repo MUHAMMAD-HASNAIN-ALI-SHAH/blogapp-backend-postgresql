@@ -1,11 +1,22 @@
 const pool = require("../config/database");
+const redis = require("../config/redis");
 
 // ------------------ GET ALL BLOGS ------------------
 const allBlogs = async (req, res) => {
   try {
+    const cachedBlogs = await redis.get("all_blogs");
+    if (cachedBlogs) {
+      return res
+        .status(200)
+        .json({ blogs: JSON.parse(cachedBlogs), source: "cache" });
+    }
+
+    console.log("Fetching all blogs from database...");
     const result = await pool.query(
       "SELECT * FROM blogs ORDER BY created_at DESC"
     );
+
+    await redis.set("all_blogs", JSON.stringify(result.rows), "EX", 3600);
 
     return res.status(200).json({ blogs: result.rows });
   } catch (err) {
@@ -19,7 +30,12 @@ const getBlogById = async (req, res) => {
   try {
     const { id } = req.params;
 
-    await new Promise(resolve => setTimeout(resolve, 2000));
+    const cachedBlog = await redis.get(`blog_${id}`);
+    if (cachedBlog) {
+      return res.status(200).json({ blog: JSON.parse(cachedBlog), source: "cache" });
+    }
+
+    console.log(`Fetching blog with ID ${id} from database...`);
     const result = await pool.query(
       "SELECT * FROM blogs WHERE id = $1",
       [id]
@@ -28,6 +44,8 @@ const getBlogById = async (req, res) => {
     if (result.rows.length === 0) {
       return res.status(404).json({ message: "Blog not found" });
     }
+
+    await redis.set(`blog_${id}`, JSON.stringify(result.rows[0]), "EX", 3600);
 
     return res.status(200).json({ blog: result.rows[0] });
   } catch (err) {
@@ -41,12 +59,21 @@ const addView = async (req, res) => {
   try {
     const { id } = req.params;
 
-    const checkBlog = await pool.query(
-      "SELECT id FROM blogs WHERE id = $1",
-      [id]
-    );
+    let checkBlog;
+    const cashedBlogs = await redis.get("all_blogs");
 
-    if (checkBlog.rows.length === 0) {
+    if (cashedBlogs) {
+      const blogs = JSON.parse(cashedBlogs);
+      checkBlog = blogs.find((blog) => blog.id === parseInt(id)).id;
+    } else {
+      console.log("Checking blog in database...");
+      checkBlog = await pool.query(
+        "SELECT id FROM blogs WHERE id = $1",
+        [id]
+      ).rows[0].id;
+    }
+
+    if (checkBlog.id) {
       return res.status(404).json({ message: "Blog not found" });
     }
 

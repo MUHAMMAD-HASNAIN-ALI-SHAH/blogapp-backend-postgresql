@@ -1,4 +1,5 @@
 const pool = require("../config/database");
+const redis = require("../config/redis");
 
 // ------------------ ADD COMMENT ------------------
 const addComment = async (req, res) => {
@@ -8,11 +9,23 @@ const addComment = async (req, res) => {
     const userId = req.user.id;
 
     // Check if blog exists
-    const blogCheck = await pool.query(
-      "SELECT id FROM blogs WHERE id = $1",
-      [blogId]
-    );
-    if (blogCheck.rows.length === 0) {
+    const cashedBlogs = await redis.get("all_blogs");
+    let checkBlog;
+
+    // Check if blog exists in cache first, if not check in database
+    if (cashedBlogs) {
+      const blogs = JSON.parse(cashedBlogs);
+      checkBlog = blogs.find((blog) => blog.id === parseInt(blogId))?.id;
+    } else {
+      const result = await pool.query(
+        "SELECT id FROM blogs WHERE id = $1",
+        [blogId]
+      );
+      checkBlog = result.rows[0]?.id;
+    }
+
+    // Check if blog exists
+    if (!checkBlog) {
       return res.status(404).json({ message: "Blog not found" });
     }
 

@@ -15,7 +15,7 @@ const allBlogs = async (req, res) => {
 
     // If not cached, fetch from database
     const result = await pool.query(
-      "SELECT * FROM blogs ORDER BY created_at DESC"
+      "SELECT id, title, description, created_at, views FROM blogs ORDER BY created_at DESC"
     );
 
     // Cache the result in Redis for 1 hour (3600 seconds)
@@ -89,6 +89,15 @@ const addView = async (req, res) => {
       "UPDATE blogs SET views = views + 1 WHERE id = $1",
       [id]
     );
+
+    if (cashedBlogs) {
+      const blogs = JSON.parse(cashedBlogs);
+      const blogIndex = blogs.findIndex((blog) => blog.id === parseInt(id));
+      if (blogIndex !== -1) {
+        blogs[blogIndex].views += 1;
+        await redis.set(`all_blogs`, JSON.stringify(blogs), "EX", 3600);
+      }
+    }
 
     return res
       .status(200)

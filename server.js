@@ -4,6 +4,7 @@ const cookieParser = require("cookie-parser");
 const app = express();
 const bodyParser = require("body-parser");
 require("dotenv").config();
+const connectDB = require("./config/database");
 
 app.use(bodyParser.json({ limit: "10mb" }));
 app.use(bodyParser.urlencoded({ limit: "10mb", extended: true }));
@@ -13,10 +14,6 @@ app.use(
         credentials: true,
     })
 );
-
-// app.use((req, res, next) => {
-//   setTimeout(() => next(), 5000);
-// });
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
@@ -31,6 +28,8 @@ app.use("/api/v6/dashboard", require("./routes/dashboard.route"));
 
 PORT = process.env.PORT;
 
-app.listen(PORT, () => {
-    console.log(`Blog server is running on the port ${PORT}`);
+connectDB().then(() => {
+    app.listen(PORT, () => {
+        console.log(`Blog server is running on the port ${PORT}`);
+    });
 });
